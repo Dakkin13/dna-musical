@@ -52,7 +52,7 @@ export async function saveSession(
 
     // Upsert en la tabla 'profiles' usando el Spotify ID como clave estable.
     // ON CONFLICT (spotify_id) → actualiza los campos que pueden cambiar.
-    const { data, error } = await supabase
+    const { data: _profileData, error } = await supabase
       .from("profiles")
       .upsert(
         {
@@ -63,18 +63,19 @@ export async function saveSession(
           country: profile.country,
           spotify_product: profile.product,
           updated_at: new Date().toISOString(),
-        },
+        } as unknown as never,
         { onConflict: "spotify_id" }
       )
       .select("id")
       .single();
+    const data = _profileData as { id: string } | null;
 
     if (error) {
       console.error("[saveSession] Supabase error:", error.message);
       return { success: false, error: "Error al guardar el perfil de usuario" };
     }
 
-    return { success: true, userId: data.id };
+    return { success: true, userId: data!.id };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error desconocido";
     console.error("[saveSession] Unexpected error:", message);

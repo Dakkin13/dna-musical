@@ -94,11 +94,14 @@ export async function POST(): Promise<Response> {
 
     // 7. Upsert en dna_profiles
     //    Primero comprobamos si ya existe un perfil para recuperar el slug previo.
-    const { data: existingProfile } = await supabase
+    const _existingResult = await supabase
       .from("dna_profiles")
       .select("id, share_slug")
       .eq("spotify_id", profile.id)
       .maybeSingle();
+    const existingProfile = _existingResult.data as
+      | { id: string; share_slug: string }
+      | null;
 
     const shareSlug = existingProfile?.share_slug ?? generateSlug();
 
@@ -116,7 +119,7 @@ export async function POST(): Promise<Response> {
           tracks_medium_term: tracksMT.map((t) => t.id),
           tracks_long_term: tracksLT.map((t) => t.id),
           updated_at: new Date().toISOString(),
-        },
+        } as unknown as never,
         { onConflict: "spotify_id" }
       );
 

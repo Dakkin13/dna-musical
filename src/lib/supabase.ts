@@ -1,21 +1,36 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { DnaProfile } from "@/types";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// Inicialización lazy: el cliente se crea la primera vez que se usa,
+// no al importar el módulo. Esto evita que el build de Vercel crashee
+// si las variables de entorno se añaden después del primer deploy.
+let _client: ReturnType<typeof createSupabaseClient> | null = null;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    "Faltan variables de entorno: NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY"
-  );
+function getClient() {
+  if (_client) return _client;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    throw new Error(
+      "Faltan variables de entorno: NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY"
+    );
+  }
+
+  _client = createSupabaseClient(url, key);
+  return _client;
 }
 
 /**
- * Cliente de Supabase para uso en el browser (componentes Client) y en
- * Route Handlers. Usa la anon key — las políticas RLS de la tabla controlan
- * el acceso según el JWT del usuario.
+ * Proxy que expone la misma API que el cliente directo pero con
+ * inicialización lazy para compatibilidad con el build de Vercel.
  */
-export const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey);
+export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>, {
+  get(_target, prop) {
+    return getClient()[prop as keyof ReturnType<typeof createSupabaseClient>];
+  },
+});
 
 // --- Helpers de base de datos ---
 
@@ -54,7 +69,7 @@ export async function getDnaProfileByUserId(
 export async function upsertDnaProfile(
   profile: Omit<DnaProfile, "id" | "createdAt" | "updatedAt">
 ): Promise<DnaProfile | null> {
-  const { data, error } = await supabase
+  const { data: _upsertData, error } = await supabase
     .from("dna_profiles")
     .upsert(
       {
@@ -64,11 +79,12 @@ export async function upsertDnaProfile(
         is_public: profile.isPublic,
         display_name: profile.displayName,
         avatar_url: profile.avatarUrl,
-      },
+      } as unknown as never,
       { onConflict: "user_id" }
     )
     .select()
     .single();
+  const data = _upsertData as DnaProfile | null;
 
   if (error || !data) return null;
   return data as DnaProfile;
