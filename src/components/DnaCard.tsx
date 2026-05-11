@@ -1,13 +1,5 @@
 "use client";
 
-import {
-  Radar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  ResponsiveContainer,
-} from "recharts";
 import type { DnaData } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -96,15 +88,80 @@ function ArtistAvatar({ name, imageUrl }: ArtistSnippet) {
 }
 
 // ---------------------------------------------------------------------------
+// SVG Radar chart (sin dependencias externas)
+// ---------------------------------------------------------------------------
+
+function SvgRadar({ data }: { data: { label: string; value: number }[] }) {
+  const size = 260;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = 90;
+  const n = data.length;
+  const levels = 4;
+
+  function polar(angle: number, radius: number) {
+    const a = (angle - Math.PI / 2);
+    return { x: cx + radius * Math.cos(a), y: cy + radius * Math.sin(a) };
+  }
+
+  const angles = data.map((_, i) => (2 * Math.PI * i) / n);
+
+  const gridPolygons = Array.from({ length: levels }, (_, lvl) => {
+    const rr = (r * (lvl + 1)) / levels;
+    return angles.map((a) => polar(a, rr)).map((p) => `${p.x},${p.y}`).join(" ");
+  });
+
+  const dataPoints = data.map((d, i) => polar(angles[i], (d.value / 100) * r));
+  const dataPath = dataPoints.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ") + "Z";
+
+  const labelOffset = 18;
+
+  return (
+    <svg viewBox={`0 0 ${size} ${size}`} width="100%" height={size} aria-hidden>
+      {/* Grid lines */}
+      {angles.map((a, i) => {
+        const end = polar(a, r);
+        return <line key={i} x1={cx} y1={cy} x2={end.x} y2={end.y} stroke="rgba(255,255,255,0.08)" strokeWidth={1} />;
+      })}
+      {/* Grid polygons */}
+      {gridPolygons.map((pts, i) => (
+        <polygon key={i} points={pts} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
+      ))}
+      {/* Data area */}
+      <path d={dataPath} fill="#7F77DD" fillOpacity={0.22} stroke="#7F77DD" strokeWidth={2} strokeLinejoin="round" />
+      {/* Dots */}
+      {dataPoints.map((p, i) => (
+        <circle key={i} cx={p.x} cy={p.y} r={3} fill="#7F77DD" />
+      ))}
+      {/* Labels */}
+      {data.map((d, i) => {
+        const lp = polar(angles[i], r + labelOffset);
+        return (
+          <text
+            key={i}
+            x={lp.x}
+            y={lp.y}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={11}
+            fontWeight={500}
+            fill="rgba(255,255,255,0.55)"
+          >
+            {d.label}
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // DnaCard
 // ---------------------------------------------------------------------------
 
 export default function DnaCard({ dna, narrative, artists = [] }: DnaCardProps) {
   const emoji = ARCHETYPE_EMOJI[dna.archetype] ?? "🎵";
-  const radarData = RADAR_LABELS.map(({ key, label }) => ({
-    subject: label,
-    value: dna[key],
-  }));
+  const radarData = RADAR_LABELS.map(({ key, label }) => ({ label, value: dna[key] }));
   const maxGenreWeight = dna.topGenres[0]?.weight ?? 1;
 
   return (
@@ -151,37 +208,7 @@ export default function DnaCard({ dna, narrative, artists = [] }: DnaCardProps) 
 
         {/* ── 2. Radar chart ── */}
         <div className="rounded-2xl border border-white/8 bg-white/3 px-2 py-4">
-          <ResponsiveContainer width="100%" height={260}>
-            <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
-              <PolarGrid
-                gridType="polygon"
-                stroke="rgba(255,255,255,0.08)"
-                strokeDasharray="0"
-              />
-              <PolarAngleAxis
-                dataKey="subject"
-                tick={{
-                  fill: "rgba(255,255,255,0.55)",
-                  fontSize: 11,
-                  fontWeight: 500,
-                }}
-              />
-              {/* Oculta las etiquetas de radio pero mantiene el dominio 0-100 */}
-              <PolarRadiusAxis
-                domain={[0, 100]}
-                tick={false}
-                axisLine={false}
-              />
-              <Radar
-                dataKey="value"
-                stroke="#7F77DD"
-                strokeWidth={2}
-                fill="#7F77DD"
-                fillOpacity={0.22}
-                dot={{ fill: "#7F77DD", r: 3, strokeWidth: 0 }}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
+          <SvgRadar data={radarData} />
         </div>
 
         {/* ── 3. Top géneros ── */}
