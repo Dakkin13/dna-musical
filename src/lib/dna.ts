@@ -36,11 +36,9 @@ export async function fetchAudioFeatures(
     });
 
     if (!res.ok) {
-      throw new SpotifyError(
-        "Error al obtener audio features",
-        res.status,
-        "/audio-features"
-      );
+      // /audio-features fue deprecado para apps nuevas (post nov 2024).
+      // Devolvemos vacío para que el DNA se calcule solo con géneros.
+      return results;
     }
 
     const data = (await res.json()) as {
