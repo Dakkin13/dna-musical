@@ -101,7 +101,7 @@ function buildTopGenres(artists: SpotifyArtist[]): GenreWeight[] {
   const counts = new Map<string, number>();
 
   for (const artist of artists) {
-    for (const genre of artist.genres) {
+    for (const genre of (artist.genres ?? [])) {
       counts.set(genre, (counts.get(genre) ?? 0) + 1);
     }
   }
@@ -218,7 +218,7 @@ export function calculateDna(
   const mainstreamness = score(avg(topArtists.map((a) => a.popularity)));
 
   // --- Diversity: géneros únicos normalizados (1 → 0, 15+ → 100) ---
-  const uniqueGenres = new Set(topArtists.flatMap((a) => a.genres)).size;
+  const uniqueGenres = new Set(topArtists.flatMap((a) => a.genres ?? [])).size;
   // Clamp entre 1 y 15, luego normalizar
   const diversityRaw = Math.min(Math.max(uniqueGenres - 1, 0) / 14, 1) * 100;
   const diversity = score(diversityRaw);
