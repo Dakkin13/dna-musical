@@ -90,11 +90,14 @@ async function DashboardContent() {
   if (shouldRedirect || !profile) redirect("/?error=session_expired");
 
   // Comprueba si hay un DNA fresco en caché (< 24 h)
-  const { data: cached } = await supabase
+  const _cachedResult = await supabase
     .from("dna_profiles")
     .select("dna, share_slug, updated_at")
     .eq("spotify_id", profile.id)
     .maybeSingle();
+  const cached = _cachedResult.data as
+    | { dna: DnaData; share_slug: string; updated_at: string }
+    | null;
 
   const isFresh =
     cached !== null &&

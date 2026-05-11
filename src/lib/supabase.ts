@@ -69,7 +69,7 @@ export async function getDnaProfileByUserId(
 export async function upsertDnaProfile(
   profile: Omit<DnaProfile, "id" | "createdAt" | "updatedAt">
 ): Promise<DnaProfile | null> {
-  const { data, error } = await supabase
+  const { data: _upsertData, error } = await supabase
     .from("dna_profiles")
     .upsert(
       {
@@ -79,11 +79,12 @@ export async function upsertDnaProfile(
         is_public: profile.isPublic,
         display_name: profile.displayName,
         avatar_url: profile.avatarUrl,
-      },
+      } as unknown as never,
       { onConflict: "user_id" }
     )
     .select()
     .single();
+  const data = _upsertData as DnaProfile | null;
 
   if (error || !data) return null;
   return data as DnaProfile;
